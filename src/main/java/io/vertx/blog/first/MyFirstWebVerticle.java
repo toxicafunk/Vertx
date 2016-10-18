@@ -6,6 +6,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -43,18 +44,6 @@ public class MyFirstWebVerticle extends AbstractVerticle {
         // Create a router object
         Router router = Router.router(vertx);
 
-
-
-        // Serve static resources from the /assets directory
-        router.route("/assets/*").handler(StaticHandler.create("assets"));
-
-        // REST API
-        router.get("/api/whiskies").handler(this::getAll);
-
-        router.route("/api/whiskies*").handler(BodyHandler.create());
-        router.post("/api/whiskies").handler(this::addOne);
-        router.delete("/api/whiskies/:id").handler(this::deleteOne);
-
         // Bind "/" to our message
         router.route("/").handler(routingContext -> {
             HttpServerResponse response = routingContext.response();
@@ -62,6 +51,19 @@ public class MyFirstWebVerticle extends AbstractVerticle {
                     .putHeader(CONTENT_TYPE_LABEL, "text/html")
                     .end("<h1>Hola vertriculos web!</h1>");
         });
+
+        // Serve static resources from the /assets directory
+        router.route("/assets/*").handler(StaticHandler.create("assets"));
+
+        // REST API
+        router.get("/api/whiskies").handler(this::getAll);
+        router.route("/api/whiskies*").handler(BodyHandler.create());
+        router.post("/api/whiskies").handler(this::addOne);
+        router.get("/api/whiskies/:id").handler(this::getOne);
+        router.put("/api/whiskies/:id").handler(this::updateOne);
+        router.delete("/api/whiskies/:id").handler(this::deleteOne);
+
+
 
         // Create the HTTP server and pass the "accept" method to the request handler
         vertx
@@ -77,6 +79,20 @@ public class MyFirstWebVerticle extends AbstractVerticle {
                             }
                         }
                 );
+    }
+
+    private void getOne(RoutingContext routingContext) {
+        final String id = routingContext.request().getParam("id");
+        if (id == null || !products.containsKey(Integer.valueOf(id))) {
+            routingContext.response().setStatusCode(404).end();
+        } else {
+            Integer idAsInteger = Integer.valueOf(id);
+            final Whisky whisky = products.get(idAsInteger);
+            routingContext.response()
+                    .setStatusCode(200)
+                    .putHeader(CONTENT_TYPE_LABEL, CONTENT_TYPE_HEADER)
+                    .end(Json.encodePrettily(whisky));
+        }
     }
 
     private void deleteOne(RoutingContext routingContext) {
@@ -103,5 +119,19 @@ public class MyFirstWebVerticle extends AbstractVerticle {
         routingContext.response()
                 .putHeader(CONTENT_TYPE_LABEL, CONTENT_TYPE_HEADER)
                 .end(Json.encodePrettily(products.values()));
+    }
+
+    private void updateOne(RoutingContext routingContext) {
+        final String id = routingContext.request().getParam("id");
+        //JsonObject json = routingContext.getBodyAsJson();
+        final Whisky whisky = Json.decodeValue(routingContext.getBodyAsString(), Whisky.class);
+        if (id == null || whisky == null) {
+            routingContext.response().setStatusCode(400).end();
+        } else {
+            products.put(Integer.valueOf(id), whisky);
+            routingContext.response()
+                    .putHeader(CONTENT_TYPE_LABEL, CONTENT_TYPE_HEADER)
+                    .end(Json.encodePrettily(whisky));
+        }
     }
 }
