@@ -23,8 +23,8 @@ import java.util.Map;
  */
 public class MyFirstWebVerticle extends AbstractVerticle {
 
-    private final String CONTENT_TYPE_LABEL = "Content-Type";
-    private final String CONTENT_TYPE_HEADER = "application/json; charset=utf-8";
+    protected final String CONTENT_TYPE_LABEL = "Content-Type";
+    protected final String CONTENT_TYPE_HEADER = "application/json; charset=utf-8";
 
     // Store our product
     private Map<Integer, Whisky> products = new LinkedHashMap<>();
@@ -38,9 +38,29 @@ public class MyFirstWebVerticle extends AbstractVerticle {
 
     @Override
     public void start(Future<Void> fut) {
-
         createSomeData();
+        startWebApp(fut);
+    }
 
+    protected void startWebApp(Future<Void> fut) {
+        Router router = configRoutes();
+        // Create the HTTP server and pass the "accept" method to the request handler
+        vertx
+                .createHttpServer()
+                .requestHandler(router::accept)
+                .listen(
+                        config().getInteger("http.port", 8000),
+                        result -> {
+                            if (result.succeeded()) {
+                                fut.complete();
+                            } else {
+                                fut.fail(result.cause());
+                            }
+                        }
+                );
+    }
+
+    protected Router configRoutes() {
         // Create a router object
         Router router = Router.router(vertx);
 
@@ -62,26 +82,10 @@ public class MyFirstWebVerticle extends AbstractVerticle {
         router.get("/api/whiskies/:id").handler(this::getOne);
         router.put("/api/whiskies/:id").handler(this::updateOne);
         router.delete("/api/whiskies/:id").handler(this::deleteOne);
-
-
-
-        // Create the HTTP server and pass the "accept" method to the request handler
-        vertx
-                .createHttpServer()
-                .requestHandler(router::accept)
-                .listen(
-                        config().getInteger("http.port", 8000),
-                        result -> {
-                            if (result.succeeded()) {
-                                fut.complete();
-                            } else {
-                                fut.fail(result.cause());
-                            }
-                        }
-                );
+        return router;
     }
 
-    private void getOne(RoutingContext routingContext) {
+    protected void getOne(RoutingContext routingContext) {
         final String id = routingContext.request().getParam("id");
         if (id == null || !products.containsKey(Integer.valueOf(id))) {
             routingContext.response().setStatusCode(404).end();
@@ -95,7 +99,7 @@ public class MyFirstWebVerticle extends AbstractVerticle {
         }
     }
 
-    private void deleteOne(RoutingContext routingContext) {
+    protected void deleteOne(RoutingContext routingContext) {
         String id = routingContext.request().getParam("id");
         if (id == null || id.isEmpty()) {
             routingContext.response().setStatusCode(400).end();
@@ -106,7 +110,7 @@ public class MyFirstWebVerticle extends AbstractVerticle {
         }
     }
 
-    private void addOne(RoutingContext routingContext) {
+    protected void addOne(RoutingContext routingContext) {
         final Whisky whisky = Json.decodeValue(routingContext.getBodyAsString(), Whisky.class);
         products.put(whisky.getId(), whisky);
         routingContext.response()
@@ -115,13 +119,13 @@ public class MyFirstWebVerticle extends AbstractVerticle {
                 .end(Json.encodePrettily(whisky));
     }
 
-    private void getAll(RoutingContext routingContext) {
+    protected void getAll(RoutingContext routingContext) {
         routingContext.response()
                 .putHeader(CONTENT_TYPE_LABEL, CONTENT_TYPE_HEADER)
                 .end(Json.encodePrettily(products.values()));
     }
 
-    private void updateOne(RoutingContext routingContext) {
+    protected void updateOne(RoutingContext routingContext) {
         final String id = routingContext.request().getParam("id");
         //JsonObject json = routingContext.getBodyAsJson();
         final Whisky whisky = Json.decodeValue(routingContext.getBodyAsString(), Whisky.class);
